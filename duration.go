@@ -2,6 +2,7 @@ package sqltype
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"time"
 )
 
@@ -15,7 +16,40 @@ type NullDuration struct {
 
 // Scan implements the Scanner interface.
 func (nd *NullDuration) Scan(value interface{}) error {
-	nd.Duration, nd.Valid = value.(time.Duration)
+	switch v := value.(type) {
+	default:
+		return fmt.Errorf("unable to parse NullDuration value for type %T", v)
+	case time.Duration:
+		nd.Duration = v
+		nd.Valid = true
+	case *time.Duration:
+		if v != nil {
+			nd.Duration = *v
+			nd.Valid = true
+		}
+	case []uint8:
+		if len(v) > 0 {
+			d, err := time.ParseDuration(string(v))
+			if err == nil {
+				nd.Duration = d
+				nd.Valid = true
+			}
+		}
+	case string:
+		d, err := time.ParseDuration(v)
+		if err == nil {
+			nd.Duration = d
+			nd.Valid = true
+		}
+	case *string:
+		if v != nil {
+			d, err := time.ParseDuration(*v)
+			if err == nil {
+				nd.Duration = d
+				nd.Valid = true
+			}
+		}
+	}
 	return nil
 }
 
@@ -24,5 +58,5 @@ func (nd NullDuration) Value() (driver.Value, error) {
 	if !nd.Valid {
 		return nil, nil
 	}
-	return nd.Duration, nil
+	return nd.Duration.String(), nil
 }
